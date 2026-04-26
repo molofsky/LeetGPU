@@ -1,0 +1,32 @@
+#include <cuda_runtime.h>
+
+__global__ void invert_kernel(unsigned char* image, int width, int height) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= width * height) return;
+
+    int base = idx * 4;
+    image[base + 0] = 255 - image[base + 0];
+    image[base + 1] = 255 - image[base + 1];
+    image[base + 2] = 255 - image[base + 2];
+
+}
+
+__global__ void invert_kernel_vectorized(unsigned char* image, int width, int height) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= width * height) return;
+
+    uchar4 pixel = reinterpret_cast<uchar4*>(image)[idx];
+    pixel.x = 255 - pixel.x;
+    pixel.y = 255 - pixel.y;
+    pixel.z = 255 - pixel.z;
+    reinterpret_cast<uchar4*>(image)[idx] = pixel;
+}
+
+// image_input, image_output are device pointers (i.e. pointers to memory on the GPU)
+extern "C" void solve(unsigned char* image, int width, int height) {
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (width * height + threadsPerBlock - 1) / threadsPerBlock;
+
+    invert_kernel<<<blocksPerGrid, threadsPerBlock>>>(image, width, height);
+    cudaDeviceSynchronize();
+}
